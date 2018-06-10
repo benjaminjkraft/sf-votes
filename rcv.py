@@ -118,8 +118,8 @@ def pairwise_preferences(ballots):
     return prefs
 
 
-def run_condorcet(ballots, verbose=True):
-    prefs = pairwise_preferences(ballots)
+def run_condorcet(ballots, verbose=True, pref_fn=pairwise_preferences):
+    prefs = pref_fn(ballots)
     candidates = {c for c, _ in prefs}
     wins = {c: len([c for d in candidates
                     if c != d and prefs[(c, d)] > prefs[(d, c)]])
@@ -137,3 +137,30 @@ def run_condorcet(ballots, verbose=True):
     for c, w in wins.items():
         if w == len(candidates) - 1:
             return c
+
+
+def _strongest_paths(ballots):
+    prefs = pairwise_preferences(ballots)
+    candidates = {c for c, _ in prefs}
+    paths = {}
+    for c in candidates:
+        for d in candidates:
+            if c != d:
+                if prefs[(c, d)] > prefs[(d, c)]:
+                    paths[(c, d)] = prefs[(c, d)]
+                else:
+                    paths[(c, d)] = 0
+
+    for c in candidates:
+        for d in candidates:
+            if c != d:
+                for e in candidates:
+                    if e not in (c, d):
+                        paths[(d, e)] = max(paths[(d, e)],
+                                            min(paths[(d, c)], paths[(c, e)]))
+
+    return paths
+
+
+def run_schulze(ballots, verbose=True):
+    return run_condorcet(ballots, verbose, _strongest_paths)
