@@ -185,6 +185,10 @@ def run_fptp(ballots, verbose=True):
     return run_borda(ballots, verbose, lambda i: not i)
 
 
+def run_approval(ballots, verbose=True, cutoff=3):
+    return run_borda(ballots, verbose, lambda i: i < cutoff)
+
+
 def add_votes(ballots, candidate, n):
     ballots_for_candidate = [b for b in ballots
                              if b.cleaned_votes()
