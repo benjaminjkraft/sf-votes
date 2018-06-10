@@ -2,15 +2,15 @@
 import collections
 import itertools
 
+import requests
 
-def get_candidates(masterlookup_filename, contest_id):
-    """Returns map of id to name."""
-    candidates = {}
-    with open(masterlookup_filename) as f:
-        for line in f:
-            if line[:10].strip() == 'Candidate' and line[74:81] == contest_id:
-                candidates[line[10:17]] = candidates[17:67].strip()
-    return candidates
+
+URL_PREFIX = 'http://www.sfelections.org/results/20180605/data/'
+
+
+def _get_file(rept, name):
+    url = f'{URL_PREFIX}{rept}/{rept}_{name}.txt'
+    return requests.get(url).text
 
 
 class Ballot:
@@ -37,24 +37,23 @@ class Ballot:
         return votes
 
 
-def get_ballots(filename_prefix='/home/benkraft/Downloads/20180609',
-                contest_id='0000020'):  # mayor
+def get_ballots(rept, contest_id='0000020'):  # mayor
     """Returns list of ballots."""
     candidates = {}
     precincts = {}
-    with open(filename_prefix + '_masterlookup.txt') as f:
-        for line in f:
-            if line[:10].strip() == 'Candidate' and line[74:81] == contest_id:
-                candidates[line[10:17]] = line[17:67].strip()
-            elif line[:10].strip() == 'Precinct':
-                precincts[line[10:17]] = line[17:67].strip()
+    masterlookup = _get_file(rept, 'masterlookup')
+    for line in masterlookup.splitlines():
+        if line[:10].strip() == 'Candidate' and line[74:81] == contest_id:
+            candidates[line[10:17]] = line[17:67].strip()
+        elif line[:10].strip() == 'Precinct':
+            precincts[line[10:17]] = line[17:67].strip()
 
     ballots = collections.defaultdict(Ballot)
-    with open(filename_prefix + '_ballotimage.txt') as f:
-        for line in f:
-            if line[:7] == contest_id:
-                ballots[line[7:16]].add_ballotimage_line(
-                    line, candidates, precincts)
+    ballotimage = _get_file(rept, 'ballotimage')
+    for line in ballotimage.splitlines():
+        if line[:7] == contest_id:
+            ballots[line[7:16]].add_ballotimage_line(
+                line, candidates, precincts)
 
     return list(ballots.values())
 
@@ -164,3 +163,22 @@ def _strongest_paths(ballots):
 
 def run_schulze(ballots, verbose=True):
     return run_condorcet(ballots, verbose, _strongest_paths)
+
+
+def run_borda(ballots, verbose=True, count_fn=lambda i: 3 - i):
+    counts = collections.defaultdict(int)
+    for b in ballots:
+        for i, v in enumerate(b.cleaned_votes()):
+            counts[v] += count_fn(i)
+
+    winners = sorted(counts.items(), key=lambda i: i[1], reverse=True)
+    if verbose:
+        print("Borda counts:")
+        for c, v in winners:
+            print(("%s:" % c).ljust(25), "%6s" % v)
+
+    return winners[0][0]
+
+
+def run_fptp(ballots, verbose=True):
+    return run_borda(ballots, verbose, lambda i: not i)
