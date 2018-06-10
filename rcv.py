@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import collections
 import itertools
+import random
 
 import requests
 
@@ -182,3 +183,10 @@ def run_borda(ballots, verbose=True, count_fn=lambda i: 3 - i):
 
 def run_fptp(ballots, verbose=True):
     return run_borda(ballots, verbose, lambda i: not i)
+
+
+def add_votes(ballots, candidate, n):
+    ballots_for_candidate = [b for b in ballots
+                             if b.cleaned_votes()
+                             and b.cleaned_votes()[0] == candidate]
+    return ballots + random.sample(ballots_for_candidate, n)
